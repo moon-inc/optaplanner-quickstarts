@@ -1,7 +1,10 @@
 package org.acme.schooltimetabling.solver;
 
+import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.LocalTime;
 
+import org.acme.schooltimetabling.domain.Timeslot;
 import org.optaplanner.core.api.score.buildin.hardsoft.HardSoftScore;
 import org.optaplanner.core.api.score.stream.Constraint;
 import org.optaplanner.core.api.score.stream.ConstraintFactory;
@@ -14,16 +17,22 @@ public class TimeTableConstraintProvider implements ConstraintProvider {
 
     @Override
     public Constraint[] defineConstraints(ConstraintFactory constraintFactory) {
-        return new Constraint[] {
+        Constraint[] c = new Constraint[] {
                 // Hard constraints
                 roomConflict(constraintFactory),
                 teacherConflict(constraintFactory),
                 studentGroupConflict(constraintFactory),
+                teacherRoomRestrict(constraintFactory),
                 // Soft constraints
                 teacherRoomStability(constraintFactory),
                 teacherTimeEfficiency(constraintFactory),
                 studentGroupSubjectVariety(constraintFactory)
+
         };
+        System.out.println("--------------------Here is the constraint----------------------------------");
+        System.out.println(c);
+        System.out.println("--------------------End of constraint----------------------------------");
+        return c;
     }
 
     Constraint roomConflict(ConstraintFactory constraintFactory) {
@@ -52,12 +61,27 @@ public class TimeTableConstraintProvider implements ConstraintProvider {
 
     Constraint studentGroupConflict(ConstraintFactory constraintFactory) {
         // A student can attend at most one lesson at the same time.
-        return constraintFactory
+       Constraint d = constraintFactory
                 .forEachUniquePair(Lesson.class,
                         Joiners.equal(Lesson::getTimeslot),
                         Joiners.equal(Lesson::getStudentGroup))
                 .penalize(HardSoftScore.ONE_HARD)
                 .asConstraint("Student group conflict");
+
+       return d;
+    }
+
+    Constraint teacherRoomRestrict(ConstraintFactory constraintFactory) {
+        // I. Jones cannot teach on Monday
+        Constraint c = constraintFactory.forEach(Lesson.class)
+               // .join(Timeslot.class)
+                .filter((lesson) ->
+                        (lesson.getTeacher().equals("I. Jones") && lesson.getTimeslot().getDayOfWeek().equals(DayOfWeek.MONDAY)// && lesson.getTimeslot().getStartTime().equals(LocalTime.of(8, 30))
+                ))
+                .penalize(HardSoftScore.ofSoft(1000))
+                .asConstraint("Darwin room restriction");
+        return c;
+
     }
 
     Constraint teacherRoomStability(ConstraintFactory constraintFactory) {
@@ -101,5 +125,6 @@ public class TimeTableConstraintProvider implements ConstraintProvider {
                 .penalize(HardSoftScore.ONE_SOFT)
                 .asConstraint("Student group subject variety");
     }
+
 
 }

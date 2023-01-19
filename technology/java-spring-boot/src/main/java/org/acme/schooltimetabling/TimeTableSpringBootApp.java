@@ -185,7 +185,7 @@ public class TimeTableSpringBootApp {
             lesson.setTimeslot(timeslotRepository.findAll(Sort.by("id")).iterator().next());
             lesson.setRoom(roomRepository.findAll(Sort.by("id")).iterator().next());
 
-            lessonRepository.save(lesson);
+        //    lessonRepository.save(lesson);
         };
     }
 

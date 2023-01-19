@@ -96,14 +96,24 @@ function refreshTimeTable() {
     });
 
     $.each(timeTable.lessonList, (index, lesson) => {
-      const color = pickColor(lesson.subject);
-      const lessonElementWithoutDelete = $(`<div class="card" style="background-color: ${color}"/>`)
+      let colorStr = pickColor(lesson.subject)
+      let fontColor = colorStr.split('|').pop();
+      let color = colorStr.split('|').shift();
+      let roomName = '';
+      if (lesson.room)
+        {
+            roomName = lesson.room.name.split(' ').pop();
+        }
+
+      const lessonElementWithoutDelete = $(`<div class="card" style="background-color: ${color};color:${fontColor}"/>`)
         .append($(`<div class="card-body p-2"/>`)
           .append($(`<h5 class="card-title mb-1"/>`).text(lesson.subject))
           .append($(`<p class="card-text ml-2 mb-1"/>`)
             .append($(`<em/>`).text(`by ${lesson.teacher}`)))
-          .append($(`<small class="ml-2 mt-1 card-text text-muted align-bottom float-right"/>`).text(lesson.id))
+          .append($(`<small class="ml-2 mt-1 card-text align-bottom float-right " style="color:${fontColor}"/>`).text(roomName+' '+lesson.id))
           .append($(`<p class="card-text ml-2"/>`).text(lesson.studentGroup)));
+
+
       const lessonElement = lessonElementWithoutDelete.clone();
       lessonElement.find(".card-body").prepend(
         $(`<button type="button" class="ml-2 btn btn-light btn-sm p-1 float-right"/>`)
@@ -134,12 +144,21 @@ function solve() {
   });
 }
 
+function unassignLessons() {
+  $.post("/timeTable/unassign", function () {
+    refreshSolvingButtons(false);
+    refreshTimeTable();
+  }).fail(function (xhr, ajaxOptions, thrownError) {
+    showError("Reset Failed!", xhr);
+  });
+}
+
 function refreshSolvingButtons(solving) {
   if (solving) {
     $("#solveButton").hide();
     $("#stopSolvingButton").show();
     if (autoRefreshIntervalId == null) {
-      autoRefreshIntervalId = setInterval(refreshTimeTable, 2000);
+      autoRefreshIntervalId = setInterval(refreshTimeTable, 1000); //calls refreshTimeTable every 2 second
     }
   } else {
     $("#solveButton").show();
@@ -278,6 +297,9 @@ $(document).ready(function () {
   $("#stopSolvingButton").click(function () {
     stopSolving();
   });
+  $("#resetButton").click(function () {
+      unassignLessons();
+  });
   $("#addLessonSubmitButton").click(function () {
     addLesson();
   });
@@ -297,18 +319,35 @@ $(document).ready(function () {
 
 const SEQUENCE_1 = [0x8AE234, 0xFCE94F, 0x729FCF, 0xE9B96E, 0xAD7FA8];
 const SEQUENCE_2 = [0x73D216, 0xEDD400, 0x3465A4, 0xC17D11, 0x75507B];
-
+const colors = ["e63946","f1faee","a8dadc","457b9d","1d3557","f6bd60","f7ede2","f5cac3","84a59d","f28482"];
 var colorMap = new Map;
 var nextColorCount = 0;
+let colorIndex = 0;
 
 function pickColor(object) {
   let color = colorMap[object];
+  let fontColor = '#000000';
   if (color !== undefined) {
     return color;
   }
-  color = nextColor();
-  colorMap[object] = color;
-  return color;
+//  color = nextColor();
+    colorIndex =  nextColorCount % 9;
+    color = '#'+colors[colorIndex];
+    l = hexToHSL(color)
+    //color = color;
+    nextColorCount++;
+
+  if (l < 60)
+    {
+        fontColor = '#ffffff';
+    }
+    else
+    {
+        fontColor = '#000000'
+    }
+
+ colorMap[object] = `${color}|${fontColor}`;
+  return `${color}|${fontColor}`;
 }
 
 function nextColor() {
@@ -341,4 +380,51 @@ function buildPercentageColor(floorColor, ceilColor, shadePercentage) {
   let green = (floorColor & 0x00FF00) + Math.floor(shadePercentage * ((ceilColor & 0x00FF00) - (floorColor & 0x00FF00))) & 0x00FF00;
   let blue = (floorColor & 0x0000FF) + Math.floor(shadePercentage * ((ceilColor & 0x0000FF) - (floorColor & 0x0000FF))) & 0x0000FF;
   return red | green | blue;
+}
+
+
+function hexToHSL(H) {
+  // Convert hex to RGB first
+  let r = 0, g = 0, b = 0;
+  if (H.length == 4) {
+    r = "0x" + H[1] + H[1];
+    g = "0x" + H[2] + H[2];
+    b = "0x" + H[3] + H[3];
+  } else if (H.length == 7) {
+    r = "0x" + H[1] + H[2];
+    g = "0x" + H[3] + H[4];
+    b = "0x" + H[5] + H[6];
+  }
+  // Then to HSL
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  let cmin = Math.min(r,g,b),
+      cmax = Math.max(r,g,b),
+      delta = cmax - cmin,
+      h = 0,
+      s = 0,
+      l = 0;
+
+  if (delta == 0)
+    h = 0;
+  else if (cmax == r)
+    h = ((g - b) / delta) % 6;
+  else if (cmax == g)
+    h = (b - r) / delta + 2;
+  else
+    h = (r - g) / delta + 4;
+
+  h = Math.round(h * 60);
+
+  if (h < 0)
+    h += 360;
+
+  l = (cmax + cmin) / 2;
+  s = delta == 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+  s = +(s * 100).toFixed(1);
+  l = +(l * 100).toFixed(1);
+
+  //return "hsl(" + h + "," + s + "%," + l + "%)";
+  return l;
 }

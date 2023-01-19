@@ -22,7 +22,8 @@ public class TimeTableConstraintProvider implements ConstraintProvider {
                 roomConflict(constraintFactory),
                 teacherConflict(constraintFactory),
                 studentGroupConflict(constraintFactory),
-                teacherRoomRestrict(constraintFactory),
+                teacherDayRestrict(constraintFactory),
+                teacherRoomPreference(constraintFactory),
                 // Soft constraints
                 teacherRoomStability(constraintFactory),
                 teacherTimeEfficiency(constraintFactory),
@@ -71,7 +72,7 @@ public class TimeTableConstraintProvider implements ConstraintProvider {
        return d;
     }
 
-    Constraint teacherRoomRestrict(ConstraintFactory constraintFactory) {
+    Constraint teacherDayRestrict(ConstraintFactory constraintFactory) {
         // I. Jones cannot teach on Monday
         Constraint c = constraintFactory.forEach(Lesson.class)
                // .join(Timeslot.class)
@@ -79,7 +80,20 @@ public class TimeTableConstraintProvider implements ConstraintProvider {
                         (lesson.getTeacher().equals("I. Jones") && lesson.getTimeslot().getDayOfWeek().equals(DayOfWeek.MONDAY)// && lesson.getTimeslot().getStartTime().equals(LocalTime.of(8, 30))
                 ))
                 .penalize(HardSoftScore.ofSoft(1000))
-                .asConstraint("Darwin room restriction");
+                .asConstraint("Jones Day restriction");
+        return c;
+
+    }
+
+    Constraint teacherRoomPreference(ConstraintFactory constraintFactory) {
+        // I. Jones cannot teach on Monday
+        Constraint c = constraintFactory.forEach(Lesson.class)
+                // .join(Timeslot.class)
+                .filter((lesson) ->
+                        (lesson.getTeacher().equals("I. Jones") && lesson.getRoom().getName().equals("Room B")// && lesson.getTimeslot().getStartTime().equals(LocalTime.of(8, 30))
+                        ))
+                .reward(HardSoftScore.ONE_SOFT)
+                .asConstraint("Jones room preference");
         return c;
 
     }
